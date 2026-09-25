@@ -2,6 +2,7 @@
 mov ah, 0x0e    ;switches the bios to teletype mode
 
 mov bx, Booting
+mov byte [0x8000], 0
 printBooting:
     mov al, [bx]
     cmp al, 0x00
@@ -36,6 +37,9 @@ cycle:
     jmp cycle
 
 postCycle:
+    inc byte [0x8000]
+    cmp byte [0x8000], 7    ;to change how many times to cycle, number of desired cycles * 2, must be an integer
+    je setupFBooting    ;to cycle endlessly delete all related code to printing "Finished Booting"
     mov bx, cycleChars
     mov al, 0x08
     int 0x10
@@ -43,6 +47,34 @@ postCycle:
     
 cycleChars:
     db "|/-\", 0x00
+
+setupFBooting:
+    mov bx, FBooting
+    mov al, 0x08
+    int 0x10
+    int 0x10
+    int 0x10
+    int 0x10
+    int 0x10
+    int 0x10
+    int 0x10
+    int 0x10
+    jmp printFBooting
+
+printFBooting:
+    mov al, [bx]
+    cmp al, 0x00
+    je Fin
+    int 0x10
+    inc bx
+    jmp printFBooting
+
+FBooting:
+    db 0x0a, "Finished Booting", 0x00
+
+Fin:
+    mov byte [0x8000], 0
+    jmp $
 
 times 510-($-$$) db 0x00   ;fills 510 bytes - the length of the previous bytes with 0s, this leaves 2 bytes for the magic number 55aa
 db 0x55, 0xaa   ;the magic number
