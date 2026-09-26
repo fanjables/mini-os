@@ -2,7 +2,7 @@
 mov ah, 0x0e    ;switches the bios to teletype mode
 
 mov bx, Booting
-mov byte [0x8000], 0
+mov byte [0x8000], 0    ;moves 0 into mem address 0x8000, had to use ram because i ran out of registers, the byte part says that it is 8 bit, a byte
 printBooting:
     mov al, [bx]
     cmp al, 0x00
@@ -37,8 +37,8 @@ cycle:
     jmp cycle
 
 postCycle:
-    inc byte [0x8000]
-    cmp byte [0x8000], 7    ;to change how many times to cycle, number of desired cycles * 2, must be an integer
+    inc byte [0x8000]   ;increments the value stored in 0x8000
+    cmp byte [0x8000], 7    ;to change how many times to cycle, number of desired cycles * 2, final result must be an integer
     je setupFBooting    ;to cycle endlessly delete all related code to printing "Finished Booting"
     mov bx, cycleChars
     mov al, 0x08
@@ -50,15 +50,6 @@ cycleChars:
 
 setupFBooting:
     mov bx, FBooting
-    mov al, 0x08
-    int 0x10
-    int 0x10
-    int 0x10
-    int 0x10
-    int 0x10
-    int 0x10
-    int 0x10
-    int 0x10
     jmp printFBooting
 
 printFBooting:
@@ -70,7 +61,7 @@ printFBooting:
     jmp printFBooting
 
 FBooting:
-    db 0x0a, "Finished Booting", 0x00
+    db 0x0a, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, "Finished Booting", 0x00   ;newline, 8 backspaces, "Finished Booting", null
 
 Fin:
     mov byte [0x8000], 0
