@@ -61,7 +61,7 @@ printFBooting:
     jmp printFBooting
 
 FBooting:
-    db 0x0a, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, "Finished Booting", 0x00   ;newline, 8 backspaces, "Finished Booting", null
+    db 0x0a, 0x0d, "Finished Booting", 0x00   ;newline, carriage return, "Finished Booting", null
 
 Fin:
     mov byte [0x8000], 0
