@@ -55,13 +55,39 @@ setupFBooting:
 printFBooting:
     mov al, [bx]
     cmp al, 0x00
-    je Fin
+    je setupBConfirm
     int 0x10
     inc bx
     jmp printFBooting
 
 FBooting:
     db 0x0a, 0x0d, "Finished Booting", 0x00   ;newline, carriage return, "Finished Booting", null
+
+setupBConfirm:
+    mov bx, BConfirmChar
+    jmp printBConfirm
+
+printBConfirm:
+    mov al, [bx]
+    cmp al, 0x00
+    je BConfirm
+    int 0x10
+    inc bx
+    jmp printBConfirm
+
+BConfirm:
+    mov ah, 0   ;sets the bios to input mode
+    int 0x16    ;waits for the next input from the user, puts the scancode into ah and the ascii character in al
+    mov ah, 0x0e
+    int 0x10    ;print the character you input as this in not done automatically
+    cmp al, "Y"
+    je Fin
+    cmp al, "y"
+    je Fin
+    jmp setupBConfirm
+
+BConfirmChar:
+    db 0x0a, 0x0d, "Press Y To Confirm Boot ", 0x00
 
 Fin:
     mov byte [0x8000], 0
