@@ -1,5 +1,7 @@
 [org 0x7c00]    ;tells the program that it originates from mem address 0x7c00 (the boot sector)
 
+KERNEL_LOC equ 0x1000
+
 mov [diskNum], dl
 
 mov ah, 0x0e    ;switches the bios to teletype mode
@@ -115,14 +117,66 @@ diskSetup:
     int 0x13    ;reads from the disk
     mov al, [0x7e00]
     cmp al, "a"
-    je Fin
+    je loadKernel
     jmp diskSetup
 
-Fin:
-    mov ah, 0x0e
-    mov al, "a"
-    int 0x10
-    jmp $
+loadKernel:
+    mov ax, 0
+    mov es, ax  ;part 1 of where to store it in memory
+    mov ah, 2   ;tells computer to read from disk
+    mov al, 20   ;number of sectors to read
+    mov ch, 0   ;cyliner to read from
+    mov cl, 3   ;sector number
+    mov dh, 0   ;head number
+    mov dl, [diskNum]   ;disk number for hdd/ssd
+    mov bx, KERNEL_LOC  ;part 2 of where to store it in memory
+    int 0x13    ;reads from the disk
+    jmp clear_screen
+
+clear_screen:
+    mov ah, 0x0
+    mov al, 0x3
+    int 0x10    ;text mode / clears clears screen
+    jmp GDT_SETUP
+
+GDT_SETUP:
+    cli ;stops interupts
+    lgdt [GDT_descriptor]
+    mov eax, cr0
+    or eax, 1   ;changes last bit of eax to 1
+    mov cr0, eax    ;32 bit
+    jmp CODE_SEG:start_protected_mode
+
+GDT_descriptor:
+    dw GDT_End - GDT_Start - 1
+    dd GDT_Start
+
+CODE_SEG equ code_descriptor - GDT_Start
+DATA_SEG equ data_descriptor - GDT_Start
+
+GDT_Start:  ;not a clue what this does
+    null_descriptor:
+        dd 0x00 ;defines 4 bytes
+        dd 0x00 ;empty descriptor 8 bytes
+    code_descriptor:
+        dw 0xffff   ;defines 2 bytes
+        dw 0x00
+        db 0x00 ;defines 24 bits
+        db 0b10011010 ;ppt + type flags
+        db 0b11001111 ;other flags + limit
+        db 0x00
+    data_descriptor:    ;same as code descriptor but a bit different in ppt + type flags
+        dw 0xffff
+        dw 0x00
+        db 0x00
+        db 0b10010010
+        db 0b11001111
+        db 0x00
+GDT_End:
+
+[bits 32]
+start_protected_mode:
+    jmp KERNEL_LOC  ;runs the kernel
 
 diskNum:
     db 0x00
