@@ -1,14 +1,17 @@
 char *const vbuffer = (char*)0xb8000;
+unsigned int vbufferValue = 0;
 
 void print(char *string);
+void clearTerminal();
 
 void main(){    //void main beacuse there is no os to return a value to
+    print("test");
+    clearTerminal();
     print("FANJ OS v0.2|Newline test");
     return;
 }
 
 void print(char *string){
-    static unsigned int vbufferValue = 0;
     if(vbufferValue > 4000){    //clears the screen if vbufferValue is greater than 4000
         vbufferValue = 0;
         while(vbufferValue <= 4000){
@@ -28,5 +31,15 @@ void print(char *string){
         }
         string ++;  //moves string to the next character
     }
+    return;
+}
+
+void clearTerminal(){
+    vbufferValue = 0;
+    while(vbufferValue <= 4000){
+        vbuffer[vbufferValue] = 0;
+        vbufferValue += 2;
+    }
+    vbufferValue = 0;
     return;
 }
