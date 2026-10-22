@@ -4,6 +4,8 @@ unsigned int vbufferValue = 0;
 void print(char *string);
 void printExtended(char *string, unsigned int setting);
 void clearTerminal();
+int coordsToValue(unsigned int x, unsigned int y);
+struct vec2 valueToCoords(unsigned int value);
 
 void main(){    //void main beacuse there is no os to return a value to
     print("test");
@@ -69,4 +71,21 @@ void clearTerminal(){
     }
     vbufferValue = 0;
     return;
+}
+
+int coordsToValue(unsigned int x, unsigned int y){
+    int value = (y * 160) + (x * 2);
+    return value;
+}
+
+struct vec2{
+    int x;
+    int y;
+};
+
+struct vec2 valueToCoords(unsigned int value){
+    struct vec2 coords;
+    coords.x = (value % 160) / 2;
+    coords.y = (value - coords.x) / 160;
+    return coords;
 }
