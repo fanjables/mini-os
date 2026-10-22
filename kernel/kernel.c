@@ -85,7 +85,8 @@ struct vec2{
 
 struct vec2 valueToCoords(unsigned int value){
     struct vec2 coords;
-    coords.x = (value % 160) / 2;
+    coords.x = value % 160;
     coords.y = (value - coords.x) / 160;
+    coords.x /= 2;
     return coords;
 }
