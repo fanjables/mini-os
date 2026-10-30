@@ -1,5 +1,6 @@
 char *const vbuffer = (char*)0xb8000;
 unsigned int vbufferValue = 0;
+char version[] = "FANJ OS v0.4.1|";
 
 void printChar(unsigned char character);
 void print(char *string);
@@ -17,9 +18,7 @@ void commandHandler(char string[]);
 int fStrcmp(char *stringa, char* stringb);
 
 void main(){    //void main beacuse there is no os to return a value to
-    print("test");
-    clearTerminal();
-    print("FANJ OS v0.4|");
+    print(version);
     while(1){
         char string[40];
         unsigned int string_len;
@@ -262,9 +261,11 @@ unsigned int readString(char *output_buf, unsigned int buf_len){
 }
 
 void commandHandler(char string[]){
-//    print(string);
     if(!fStrcmp(string, "clear|")){
         clearTerminal();
+    }
+    else if(!fStrcmp(string, "version|")){
+        print(version);
     }
     else{
         print("Not a command|");
