@@ -1,6 +1,6 @@
 char *const vbuffer = (char*)0xb8000;
 unsigned int vbufferValue = 0;
-char version[] = "FANJ OS v0.4.1|";
+char version[] = "FANJ OS v0.4.3|";
 
 void printChar(unsigned char character);
 void print(char *string);
@@ -18,7 +18,9 @@ void commandHandler(char string[]);
 int fStrcmp(char *stringa, char* stringb);
 
 void main(){    //void main beacuse there is no os to return a value to
+    clearTerminal();
     print(version);
+    print("For a list of commands, type \"help\"|");
     while(1){
         char string[40];
         unsigned int string_len;
@@ -80,7 +82,7 @@ void printExtended(char *string, unsigned int setting){
 
 void clearTerminal(){
     vbufferValue = 0;
-    while(vbufferValue <= 4000){
+    while(vbufferValue <= 4000){    //resets every cell to have no character and be white on black
         vbuffer[vbufferValue] = 0;
         vbufferValue ++;
         vbuffer[vbufferValue] = 15;
@@ -137,7 +139,6 @@ unsigned char readScanCodeBlock(){
     return scanCode;
 }
 
-// A standard US-QWERTY Scan Code Set 1 translation table
 // Index 0x00 is unused. 0x01 is Escape. 0x1C is Enter, etc.
 const unsigned char keymap_lowercase[128] = {
     0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 0x00 - 0x09 */
@@ -234,10 +235,10 @@ unsigned char readCharBlock(unsigned int Doesprint){
         return character;
     }
     if(shift_pressed == 1){
-        character = keymap_uppercase[scanCode];
+        character = keymap_uppercase[scanCode]; //sets character to the ascii character in the table using index scancode
     }
     else{
-        character = keymap_lowercase[scanCode];
+        character = keymap_lowercase[scanCode]; //sets character to the ascii character in the table using index scancode
     }
     if(Doesprint == 1){
         printChar(character);
@@ -248,7 +249,7 @@ unsigned char readCharBlock(unsigned int Doesprint){
 unsigned int readString(char *output_buf, unsigned int buf_len){
     unsigned int numChars = 0;
     unsigned char currentChar = 0;
-    while(currentChar != '|' && numChars < buf_len){
+    while(currentChar != '|' && numChars < buf_len){    //stops reading string when the character is | (newline)
         currentChar = readCharBlock(1);
         if(currentChar != 0){
             *output_buf = currentChar;
@@ -260,12 +261,17 @@ unsigned int readString(char *output_buf, unsigned int buf_len){
     return numChars;
 }
 
+char commands[] = "help, clear, version|";
+
 void commandHandler(char string[]){
     if(!fStrcmp(string, "clear|")){
         clearTerminal();
     }
     else if(!fStrcmp(string, "version|")){
         print(version);
+    }
+    else if(!fStrcmp(string, "help|")){
+        print(commands);
     }
     else{
         print("Not a command|");
