@@ -1,6 +1,6 @@
 char *const vbuffer = (char*)0xb8000;
 unsigned int vbufferValue = 0;
-char version[] = "FANJ OS v0.4.3|";
+char version[] = "FANJ OS v0.4.4|";
 
 void printChar(unsigned char character);
 void print(char *string);
@@ -16,6 +16,7 @@ unsigned char readCharBlock(unsigned int Doesprint);
 unsigned int readString(char *output_buf, unsigned int buf_len);
 void commandHandler(char string[]);
 int fStrcmp(char *stringa, char* stringb);
+int intToString(unsigned int number, char *outputBuf, unsigned int bufLen);
 
 void main(){    //void main beacuse there is no os to return a value to
     clearTerminal();
@@ -288,4 +289,40 @@ int fStrcmp(char *stringa, char* stringb){
         stringb++;
     }
     return (*stringa - *stringb);
+}
+
+int intToString(unsigned int number, char *outputBuf, unsigned int bufLen){
+    unsigned int numChars = 0;
+    unsigned int temp = number;
+    while(temp > 0){    //gets the number of characters the number is
+        temp /= 10;
+        numChars ++;
+    }
+    if(numChars > (bufLen - 1)){    //stops mem overflow
+        print("bufLen too small");
+        return -1;
+    }
+    char stringInverted[40];    //max of 40 character number
+    char string[40];
+    temp = 0;
+    while(number > 0){    //makes the inverted string
+        stringInverted[temp++] = (number % 10) + 48;  //+48 to make it ascii for the number
+        number /= 10;
+    }
+    temp = 0;
+    unsigned int temp2 = numChars - 1;
+    while(temp <= (numChars - 1)){    //makes the non inverted string
+        string[temp] = stringInverted[temp2];
+        temp2 --;
+        temp ++;
+    }
+    temp = 0;
+    while(temp < numChars){   //puts string into the outputBuf
+        *outputBuf = string[temp];
+        temp ++;
+        outputBuf ++;
+    }
+    *outputBuf = 0; //adds null terminator
+
+    return 0;
 }
