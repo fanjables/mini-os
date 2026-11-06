@@ -1,7 +1,7 @@
 char *const vbuffer = (char*)0xb8000;
 unsigned int vbufferValue = 0;
-char version[] = "FANJ OS v0.4.4|";
 
+char version[] = "FANJ OS v0.5.0|";
 void printChar(unsigned char character);
 void print(char *string);
 void printCharExtended(unsigned char character, unsigned int setting);
@@ -17,8 +17,10 @@ unsigned int readString(char *output_buf, unsigned int buf_len);
 void commandHandler(char string[]);
 int fStrcmp(char *stringa, char* stringb);
 int intToString(unsigned int number, char *outputBuf, unsigned int bufLen);
+char getDiskNum();
 
 void main(){    //void main beacuse there is no os to return a value to
+    const char diskNum = getDiskNum();
     clearTerminal();
     print(version);
     print("For a list of commands, type \"help\"|");
@@ -325,4 +327,16 @@ int intToString(unsigned int number, char *outputBuf, unsigned int bufLen){
     *outputBuf = 0; //adds null terminator
 
     return 0;
+}
+
+char getDiskNum(){
+    char number = 0;
+    __asm__ volatile(
+        "movb 0x9000, %%al\n"    //moves whatever is in 0x9000 into al
+        "movb $0, 0x9000"   //clears 0x9000
+        :"=a" (number)  //puts al into number
+        :
+        :"cc"   //tells compiler what registers we used
+    );
+    return number;
 }
