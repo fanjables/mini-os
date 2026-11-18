@@ -1,7 +1,8 @@
+
 char *const vbuffer = (char*)0xb8000;
 unsigned int vbufferValue = 0;
 
-char version[] = "FANJ OS v0.5.0|";
+char version[] = "FANJ OS v0.5.2|";
 void printChar(unsigned char character);
 void print(char *string);
 void printCharExtended(unsigned char character, unsigned int setting);
@@ -17,13 +18,21 @@ unsigned int readString(char *output_buf, unsigned int buf_len);
 void commandHandler(char string[]);
 int fStrcmp(char *stringa, char* stringb);
 int intToString(unsigned int number, char *outputBuf, unsigned int bufLen);
-char getDiskNum();
+int readDisk(unsigned int lbaSector, unsigned char numSectors, unsigned short int *dataBuf);
+
 
 void main(){    //void main beacuse there is no os to return a value to
-    const char diskNum = getDiskNum();
     clearTerminal();
     print(version);
     print("For a list of commands, type \"help\"|");
+    unsigned short int loadTest[256];
+    readDisk(1, 1, loadTest);
+    if(loadTest[0] == 24929){
+        print("diskreading worked|");
+    }
+    else{
+        print("didnt work|");
+    }
     while(1){
         char string[40];
         unsigned int string_len;
@@ -329,14 +338,138 @@ int intToString(unsigned int number, char *outputBuf, unsigned int bufLen){
     return 0;
 }
 
-char getDiskNum(){
-    char number = 0;
-    __asm__ volatile(
-        "movb 0x9000, %%al\n"    //moves whatever is in 0x9000 into al
-        "movb $0, 0x9000"   //clears 0x9000
-        :"=a" (number)  //puts al into number
+int readDisk(unsigned int lbaSector, unsigned char numSectors, unsigned short int *dataBuf){
+    if(((lbaSector >> 28) & 0x0f) != 0){  //Return early if lbaSector is >= 2^28
+        return 1;
+    }
+
+    unsigned char busybit = 1;
+    unsigned char driveReadyBit = 0;
+    unsigned short int port = 0;
+
+    port = 0x1F7;
+    while(busybit != 0 && driveReadyBit == 0){   //checks weather the drive is busy
+        unsigned char unprocessedBusyBit = 0;
+        __asm__ volatile(
+            "inb %%dx, %%al"
+            : "=a" (unprocessedBusyBit)
+            : "d" (port)
+            : "cc"
+        );
+        busybit = unprocessedBusyBit & 0x80;
+        driveReadyBit = unprocessedBusyBit & 0x40;
+    }
+
+    unsigned int num = 0xE0 | (lbaSector >> 24 & 0x0F);
+    
+    port = 0x1F6;
+    __asm__ volatile(   //drive select, first 4 bits of lba
+        "outb %%al, %%dx"
         :
-        :"cc"   //tells compiler what registers we used
+        :"a" (num), "d" (port)
+        :"cc"
     );
-    return number;
+
+    port = 0x1F7;
+    for (int d = 0; d < 4; d++) {   //4 dummy reads
+        __asm__ volatile(
+            "inb %%dx, %%al"
+            :
+            : "d" (port)
+            : "ax", "cc"
+        );
+    }
+
+    unsigned char lba_low = lbaSector & 0xFF;
+    unsigned char lba_mid = (lbaSector >> 8) & 0xFF;
+    unsigned char lba_high = (lbaSector >> 16) & 0xFF;
+
+    port = 0x1F2;
+    __asm__ volatile(   //tells how many sectors to read
+        "outb %%al, %%dx"
+        :
+        :"a" (numSectors), "d" (port)
+        :"cc"
+    );
+
+    port = 0x1F3;
+    __asm__ volatile(   //smallest byte
+        "outb %%al, %%dx"
+        :   //output variables
+        :"a" (lba_low), "d" (port) //input variables
+        :"cc"   //registers we used
+    );
+
+    port = 0x1F4;
+    __asm__ volatile(
+        "outb %%al, %%dx"
+        :
+        :"a" (lba_mid), "d" (port)
+        :"cc"
+    );
+
+    port = 0x1F5;
+    __asm__ volatile(
+        "outb %%al, %%dx"
+        :
+        :"a" (lba_high), "d" (port)
+        :"cc"
+    );
+
+    __asm__ volatile(   //tells it to read
+        "movb $0x20, %%al\n\t"
+        "movw $0x1F7, %%dx\n\t"
+        "outb %%al, %%dx"
+        :
+        :
+        :"ax", "dx", "cc"
+    );
+
+    for(int i = 0; i < numSectors; i++){
+        unsigned short int currentData = 0;
+        unsigned char bsy = 0;
+        unsigned char drdy = 0;
+        unsigned char drq = 0;
+        unsigned char err = 0;
+        unsigned char df = 0;
+        port = 0x1F7;
+
+        while(bsy != 0 || drdy == 0 || drq == 0 || err != 0 || df != 0){
+            __asm__ volatile(
+                "inb %%dx, %%al"
+                : "=a" (bsy)
+                : "d" (port)
+                : "cc"
+            );
+            drdy = bsy & 0x40;  //bit 6
+            drq = bsy & 0x08;   //bit 3
+            err = bsy & 0x01;   //bit 0
+            df = bsy & 0x20;    //bit 5
+            bsy = bsy & 0x80;   //bit 7
+
+            if (err != 0 || df != 0) {
+                return 2;
+            }
+
+            if (bsy == 0 && drq != 0) {
+                break;
+            }
+        }   //do nothing until bsy is not set, drdy and drq are set and err and df are not set
+
+        for (int w = 0; w < 256; w++){
+            __asm__ volatile(
+                "movw $0x1F0, %%dx\n\t"   //reads a 16 bit word into ax
+                "inw %%dx, %%ax"
+                :"=a" (currentData)
+                :
+                :"dx", "cc"
+            );
+
+            *dataBuf = currentData;
+            dataBuf ++;
+        }
+        
+    }
+
+    return 0;
 }

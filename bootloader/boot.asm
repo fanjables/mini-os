@@ -3,7 +3,6 @@
 KERNEL_LOC equ 0x1000
 
 mov [diskNum], dl
-mov [0x9000], dl    ;stores the disk number in 0x9000
 
 mov ah, 0x0e    ;switches the bios to teletype mode
 mov bx, Booting 
