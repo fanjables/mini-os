@@ -19,19 +19,31 @@ void commandHandler(char string[]);
 int fStrcmp(char *stringa, char* stringb);
 int intToString(unsigned int number, char *outputBuf, unsigned int bufLen);
 int readDisk(unsigned int lbaSector, unsigned char numSectors, unsigned short int *dataBuf);
+int writeDisk(unsigned int lbaSector, unsigned char numSectors, unsigned short int *dataBuf);
+unsigned short int Char2toShort(unsigned char *a, unsigned char *b);
+void Shortto2Char(unsigned short int input, unsigned char *a, unsigned char *b);
 
 
 void main(){    //void main beacuse there is no os to return a value to
     clearTerminal();
     print(version);
     print("For a list of commands, type \"help\"|");
+    unsigned short int writeTest[256] = {Char2toShort("a", "a")};
+    writeDisk(20, 1, writeTest);
     unsigned short int loadTest[256];
-    readDisk(1, 1, loadTest);
-    if(loadTest[0] == 24929){
+    unsigned char loadResult[3];
+    readDisk(20, 1, loadTest);
+    Shortto2Char(loadTest[0], &loadResult[0], &loadResult[1]);
+    loadResult[2] = 0;
+    if(loadResult[0] == 'a' && loadResult[1] == 'a'){
         print("diskreading worked|");
+        print(loadResult);
+        print("|");
     }
     else{
         print("didnt work|");
+        print(loadResult);
+        print("|");
     }
     while(1){
         char string[40];
@@ -472,4 +484,176 @@ int readDisk(unsigned int lbaSector, unsigned char numSectors, unsigned short in
     }
 
     return 0;
+}
+
+int writeDisk(unsigned int lbaSector, unsigned char numSectors, unsigned short int *dataBuf){
+    if(((lbaSector >> 28) & 0x0f) != 0){  //Return early if lbaSector is >= 2^28
+        return 1;
+    }
+
+    unsigned char busybit = 1;
+    unsigned char driveReadyBit = 0;
+    unsigned short int port = 0;
+
+    port = 0x1F7;
+    while(busybit != 0 && driveReadyBit == 0){   //checks weather the drive is busy
+        unsigned char unprocessedBusyBit = 0;
+        __asm__ volatile(
+            "inb %%dx, %%al"
+            : "=a" (unprocessedBusyBit)
+            : "d" (port)
+            : "cc"
+        );
+        busybit = unprocessedBusyBit & 0x80;
+        driveReadyBit = unprocessedBusyBit & 0x40;
+    }
+
+    unsigned int num = 0xE0 | (lbaSector >> 24 & 0x0F);
+    
+    port = 0x1F6;
+    __asm__ volatile(   //drive select, first 4 bits of lba
+        "outb %%al, %%dx"
+        :
+        :"a" (num), "d" (port)
+        :"cc"
+    );
+
+    port = 0x1F7;
+    for (int d = 0; d < 4; d++) {   //4 dummy reads
+        __asm__ volatile(
+            "inb %%dx, %%al"
+            :
+            : "d" (port)
+            : "ax", "cc"
+        );
+    }
+
+    unsigned char lba_low = lbaSector & 0xFF;
+    unsigned char lba_mid = (lbaSector >> 8) & 0xFF;
+    unsigned char lba_high = (lbaSector >> 16) & 0xFF;
+
+    port = 0x1F2;
+    __asm__ volatile(   //tells how many sectors to read
+        "outb %%al, %%dx"
+        :
+        :"a" (numSectors), "d" (port)
+        :"cc"
+    );
+
+    port = 0x1F3;
+    __asm__ volatile(   //smallest byte
+        "outb %%al, %%dx"
+        :   //output variables
+        :"a" (lba_low), "d" (port) //input variables
+        :"cc"   //registers we used
+    );
+
+    port = 0x1F4;
+    __asm__ volatile(
+        "outb %%al, %%dx"
+        :
+        :"a" (lba_mid), "d" (port)
+        :"cc"
+    );
+
+    port = 0x1F5;
+    __asm__ volatile(
+        "outb %%al, %%dx"
+        :
+        :"a" (lba_high), "d" (port)
+        :"cc"
+    );
+
+    __asm__ volatile(   //tells it to read
+        "movb $0x30, %%al\n\t"
+        "movw $0x1F7, %%dx\n\t"
+        "outb %%al, %%dx"
+        :
+        :
+        :"ax", "dx", "cc"
+    );
+
+    for(int i = 0; i < numSectors; i++){
+        unsigned short int currentData = 0;
+        unsigned char bsy = 0;
+        unsigned char drdy = 0;
+        unsigned char drq = 0;
+        unsigned char err = 0;
+        unsigned char df = 0;
+        port = 0x1F7;
+
+        while(bsy != 0 || drdy == 0 || drq == 0 || err != 0 || df != 0){
+            __asm__ volatile(
+                "inb %%dx, %%al"
+                : "=a" (bsy)
+                : "d" (port)
+                : "cc"
+            );
+            drdy = bsy & 0x40;  //bit 6
+            drq = bsy & 0x08;   //bit 3
+            err = bsy & 0x01;   //bit 0
+            df = bsy & 0x20;    //bit 5
+            bsy = bsy & 0x80;   //bit 7
+
+            if (err != 0 || df != 0) {
+                return 2;
+            }
+
+            if (bsy == 0 && drq != 0) {
+                break;
+            }
+        }   //do nothing until bsy is not set, drdy and drq are set and err and df are not set
+
+        for (int w = 0; w < 256; w++){
+            currentData = *dataBuf;
+            __asm__ volatile(
+                "movw $0x1F0, %%dx\n\t"   //writes a 16 bit word into dx (pointing at 0x1F0)
+                "outw %%ax, %%dx\n\t"
+                "jmp 1f\n\t"    //short delay
+                "1:"
+                :
+                :"a" (currentData)
+                :"dx", "cc"
+            );
+
+            dataBuf ++;
+        }  
+    }
+
+    port = 0x1F7;
+    __asm__ volatile(   //sends command to stop reading
+        "movb $0xE7, %%al\n\t"
+        "outb %%al, %%dx"
+        :
+        :"d" (port)
+        :"ax", "cc"
+    );
+
+    busybit = 1;
+    port = 0x1F7;
+
+    while(busybit != 0){
+        __asm__ volatile(
+            "inb %%dx, %%al"
+            :"=a" (busybit)
+            :"d" (port)
+            :"cc"
+        );
+
+        busybit = busybit & 0x80;
+    }
+
+    return 0;
+}
+
+unsigned short int Char2toShort(unsigned char *a, unsigned char *b){  //note that a is the high byte and b is the low byte    used for packaging bytes into words to be written to disk
+    unsigned short int result = 0;
+    result = (*a << 8) | *b;  //puts a in the first 8 bits and b in the second 8 bits, a shifted 8 bits to left then b put in
+    return result;
+}
+
+void Shortto2Char(unsigned short int input, unsigned char *a, unsigned char *b){    //note that a is the high byte and b is the low byte    used for unpacking words read from disk into bytes
+    *a = (input >> 8);
+    *b = input & 0xFF;
+    return;
 }
