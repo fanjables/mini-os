@@ -2,11 +2,15 @@
 char *const vbuffer = (char*)0xb8000;
 unsigned int vbufferValue = 0;
 
+unsigned char fileNames[100][50] = {0};
+unsigned int fileSectors[100] = {0};
+unsigned char fileSizes[100] = {0};
+
 char version[] = "FANJ OS v0.5.2|";
 void printChar(unsigned char character);
-void print(char *string);
+void print(unsigned char *string);
 void printCharExtended(unsigned char character, unsigned int setting);
-void printExtended(char *string, unsigned int setting);
+void printExtended(unsigned char *string, unsigned int setting);
 void clearTerminal();
 int coordsToValue(unsigned int x, unsigned int y);
 struct vec2 valueToCoords(unsigned int value);
@@ -14,41 +18,92 @@ unsigned int checkIfKey();
 unsigned char readScanCode();
 unsigned char readScanCodeBlock();
 unsigned char readCharBlock(unsigned int Doesprint);
-unsigned int readString(char *output_buf, unsigned int buf_len);
-void commandHandler(char string[]);
-int fStrcmp(char *stringa, char* stringb);
+unsigned int readString(unsigned char *output_buf, unsigned int buf_len);
+void commandHandler(unsigned char string[]);
+int fStrcmp(unsigned char *stringa, unsigned char* stringb);
 int intToString(unsigned int number, char *outputBuf, unsigned int bufLen);
 int readDisk(unsigned int lbaSector, unsigned char numSectors, unsigned short int *dataBuf);
 int writeDisk(unsigned int lbaSector, unsigned char numSectors, unsigned short int *dataBuf);
 unsigned short int Char2toShort(unsigned char *a, unsigned char *b);
 void Shortto2Char(unsigned short int input, unsigned char *a, unsigned char *b);
+void readFANJ32data();
+void writeFANJ32data();
+unsigned int Char4toInt(unsigned char *a, unsigned char *b, unsigned char *c, unsigned char *d);
+void Intto4Char(unsigned int input, unsigned char *a, unsigned char *b, unsigned char *c, unsigned char *d);
 
 
 void main(){    //void main beacuse there is no os to return a value to
     clearTerminal();
-    print(version);
-    print("For a list of commands, type \"help\"|");
-    unsigned short int writeTest[256] = {Char2toShort("a", "a")};
-    writeDisk(20, 1, writeTest);
-    unsigned short int loadTest[256];
-    unsigned char loadResult[3];
-    readDisk(20, 1, loadTest);
-    Shortto2Char(loadTest[0], &loadResult[0], &loadResult[1]);
-    loadResult[2] = 0;
-    if(loadResult[0] == 'a' && loadResult[1] == 'a'){
-        print("diskreading worked|");
-        print(loadResult);
+    readFANJ32data();
+    fileNames[4][0] = 'H';
+    fileNames[4][1] = 'e';
+    fileNames[4][2] = 'l';
+    fileNames[4][3] = 'l';
+    fileNames[4][4] = 'o';
+    fileNames[4][5] = '.';
+    fileNames[4][6] = 't';
+    fileNames[4][7] = 'x';
+    fileNames[4][8] = 't';
+    fileSectors[4] = 50;
+    fileSizes[4] = 65;
+    writeFANJ32data();
+    fileNames[4][0] = 0;
+    fileNames[4][1] = 0;
+    fileNames[4][2] = 0;
+    fileNames[4][3] = 0;
+    fileNames[4][4] = 0;
+    fileNames[4][5] = 0;
+    fileNames[4][6] = 0;
+    fileNames[4][7] = 0;
+    fileNames[4][8] = 0;
+    fileSectors[4] = 0;
+    fileSizes[4] = 0;
+    readFANJ32data();
+    unsigned char tempString[50];
+    for(unsigned int i = 0; i < 50; i++){   //copys 5th filename into tempstring
+        tempString[i] = fileNames[4][i];
+    }
+    if(!fStrcmp(tempString, "Hello.txt")){
+        print("names worked|");
+        print(tempString);
         print("|");
     }
     else{
-        print("didnt work|");
-        print(loadResult);
+        print("names didnt work|");
+        print(tempString);
         print("|");
     }
+    if(fileSectors[4] == 50){
+        print("sectors worked|");
+        unsigned char thing[12] = {0};
+        intToString(fileSectors[4], thing, 12);
+        print(thing);
+        print("|");
+    }
+    else{
+        print("sectors didnt work|");
+        unsigned char thing[12] = {0};
+        intToString(fileSectors[4], thing, 12);
+        print(thing);
+        print("|");
+    }
+    if(fileSizes[4] == 65){
+        print("filesizes worked|");
+    }
+    else{
+        print("filesizes didnt work|");
+        unsigned char thing[12] = {0};
+        intToString(fileSizes[4], thing, 12);
+        print(thing);
+//        print(fileSizes[4]);
+        print("|");
+    }   //for some reason, something in here breaks everything
+    print(version);
+    print("For a list of commands, type \"help\"|");
     while(1){
-        char string[40];
+        char string[60];
         unsigned int string_len;
-        string_len = readString(string, 40);
+        string_len = readString(string, 60);
         commandHandler(string);
     }
     return;
@@ -68,7 +123,7 @@ void printChar(unsigned char character){
     }
 }
 
-void print(char *string){
+void print(unsigned char *string){
     if(vbufferValue > 4000){    //clears the screen if vbufferValue is greater than 4000
         clearTerminal();
     }
@@ -95,7 +150,7 @@ void printCharExtended(unsigned char character, unsigned int setting){
     }
 }
 
-void printExtended(char *string, unsigned int setting){
+void printExtended(unsigned char *string, unsigned int setting){
     
     while(*string != 0){
         printCharExtended(*string, setting);
@@ -205,7 +260,7 @@ const unsigned char keymap_lowercase[128] = {
 
 const unsigned char keymap_uppercase[128] = {
     0,  27, '!', '"', 0, '$', '%', '^', '&', '*',	/* 0x00 - 0x09 */
-  '(', ')', '_', '+', '\b',	/* Backspace */
+  '(', ')', '_', '+', '0',	/* Backspace */
   '\t',			/* Tab */
   'Q', 'W', 'E', 'R',	/* 0x10 - 0x13 */
   'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '|',	/* Enter key */
@@ -265,17 +320,26 @@ unsigned char readCharBlock(unsigned int Doesprint){
         character = keymap_lowercase[scanCode]; //sets character to the ascii character in the table using index scancode
     }
     if(Doesprint == 1){
+        if(scanCode == 14){ //handles backspaces | only visual, bugfixes needed in readString
+            vbufferValue -= 2;
+            vbuffer[vbufferValue] = 0;
+            return 8;
+        }
         printChar(character);
     }
     return character;
 }
 
-unsigned int readString(char *output_buf, unsigned int buf_len){
+unsigned int readString(unsigned char *output_buf, unsigned int buf_len){
     unsigned int numChars = 0;
     unsigned char currentChar = 0;
     while(currentChar != '|' && numChars < buf_len){    //stops reading string when the character is | (newline)
         currentChar = readCharBlock(1);
-        if(currentChar != 0){
+        if (currentChar == 0x08) {
+            output_buf--;
+            *output_buf = 0;
+        }
+        else if(currentChar != 0){
             *output_buf = currentChar;
             output_buf ++;
             numChars ++;
@@ -285,9 +349,9 @@ unsigned int readString(char *output_buf, unsigned int buf_len){
     return numChars;
 }
 
-char commands[] = "help, clear, version|";
+unsigned char commands[] = "help, clear, version, read FANJ32 data, write FANJ32 data|";
 
-void commandHandler(char string[]){
+void commandHandler(unsigned char string[]){
     if(!fStrcmp(string, "clear|")){
         clearTerminal();
     }
@@ -297,13 +361,21 @@ void commandHandler(char string[]){
     else if(!fStrcmp(string, "help|")){
         print(commands);
     }
+    else if(!fStrcmp(string, "read FANJ32 data|")){
+        readFANJ32data();
+        print("FANJ32 data read|");
+    }
+    else if(!fStrcmp(string, "write FANJ32 data|")){
+        writeFANJ32data();
+        print("FANJ32 data written|");
+    }
     else{
         print("Not a command|");
     }
     return;
 }
 
-int fStrcmp(char *stringa, char* stringb){
+int fStrcmp(unsigned char *stringa, unsigned char* stringb){
     while(*stringa == *stringb){
         if (*stringa == 0){
             return 0;
@@ -656,4 +728,79 @@ void Shortto2Char(unsigned short int input, unsigned char *a, unsigned char *b){
     *a = (input >> 8);
     *b = input & 0xFF;
     return;
+}
+
+void readFANJ32data(){
+    unsigned short int nameData[2560] = {0};
+    readDisk(25, 10, nameData);  //loads fileName data form sector 25
+    unsigned char nameByteData[5120] = {0};
+    for(unsigned int a = 0; a < 2560; a ++){ //converts shorts to bytes
+        Shortto2Char(nameData[a], &nameByteData[a * 2], &nameByteData[(a * 2) + 1]);
+    }
+    unsigned int counter = 0;
+    for(unsigned int i = 0; i < 100; i++){  //reads filenames
+        for(unsigned int j = 0; j < 50; j ++){
+            fileNames[i][j] = nameByteData[counter];
+            counter++;
+        }
+    }
+    unsigned short int sectorData[256] = {0};
+    readDisk(38, 1, sectorData);
+    unsigned char sectorByteData[512] = {0};
+    for(unsigned int a = 0; a < 256; a ++){ //converts shorts to bytes
+        Shortto2Char(sectorData[a], &sectorByteData[a * 2], &sectorByteData[(a * 2) + 1]);
+    }
+    for(unsigned int i = 0; i < 100; i++){  //reads filesectors
+        fileSectors[i] = Char4toInt(&sectorByteData[i * 4], &sectorByteData[(i * 4) + 1], &sectorByteData[(i * 4) + 2], &sectorByteData[(i * 4) + 3]);
+    }
+    unsigned short int sizeData[256] = {0};
+    readDisk(40, 1, sizeData);  //starts handling filesizes
+    unsigned char sizeByteData[512] = {0};
+    for(unsigned int i = 0; i < 50; i++){
+        Shortto2Char(sizeData[i], &sizeByteData[i * 2], &sizeByteData[(i * 2) + 1]);
+    }
+    for(unsigned int i = 0; i < 100; i++){
+        fileSizes[i] = sizeByteData[i];
+    }
+    return;
+}
+
+void writeFANJ32data(){
+    unsigned short int nameData[2560] = {0};
+    unsigned int counter = 0;
+    for(unsigned int i = 0; i < 100; i++){  //turns fileNames into shorts
+        for(unsigned int j = 0; j < 50; j+= 2){
+            nameData[counter] = Char2toShort(&fileNames[i][j], &fileNames[i][j + 1]);
+            counter++;
+        }
+    }
+    writeDisk(25, 10, nameData);
+    unsigned char sectorByteData[400] = {0};
+    for(unsigned int i = 0; i < 100; i++){   //turns fileSectors into bytes to be turned into shorts
+        Intto4Char(fileSectors[i], &sectorByteData[i * 4], &sectorByteData[(i * 4) + 1], &sectorByteData[(i * 4) + 2], &sectorByteData[(i * 4) + 3]);
+    }
+    unsigned short int sectorData[256] = {0};
+    for(unsigned int i = 0; i < 200; i++){  //turns sectorByteData into shorts to be written to disk
+        sectorData[i] = Char2toShort(&sectorByteData[i * 2], &sectorByteData[(i * 2) + 1]);
+    }
+    writeDisk(38, 1, sectorData);
+    unsigned short int sizeData[256] = {0}; //start handling filesizes
+    for(unsigned int i = 0; i < 50; i++){   //turns fileSizes into shorts to be written to disk
+        sizeData[i] = Char2toShort(&fileSizes[i * 2], &fileSizes[(i * 2) + 1]);
+    }
+    writeDisk(40, 1, sizeData);
+    return;
+}
+
+unsigned int Char4toInt(unsigned char *a, unsigned char *b, unsigned char *c, unsigned char *d){    //note that a is the highest byte and d is the lowest byte
+    unsigned int result = 0;
+    result = (*a << 24) | (*b << 16) | (*c << 8) | *d;
+    return result;
+}
+
+void Intto4Char(unsigned int input, unsigned char *a, unsigned char *b, unsigned char *c, unsigned char *d){
+    *a = (input >> 24);
+    *b = (input >> 16) & 0xFF;
+    *c = (input >> 8) & 0xFF;
+    *d = input & 0xFF;
 }
